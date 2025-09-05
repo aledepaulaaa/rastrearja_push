@@ -1,18 +1,28 @@
-import Cors from 'cors';
+// backend-firebase-nextjs/src/lib/cors.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
+import Cors from 'cors';
 
-// Configuração do CORS
-const cors = Cors({
-    methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
-    origin: 'https://app.rastrearja.com', // Em produção, especifique os domínios permitidos
+// Lista de origens permitidas. Adicione 'http://localhost:3000' para testes locais.
+const allowedOrigins = ['https://app.rastrearja.com'];
+
+const corsOptions: Cors.CorsOptions = {
+    methods: ['GET', 'POST', 'DELETE', 'HEAD', 'OPTIONS'],
+    origin: (origin, callback) => {
+        // Permite requisições sem 'origin' (ex: Postman, apps móveis) ou da lista de permitidos.
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Não permitido pela política de CORS'));
+        }
+    },
     credentials: true,
-});
+};
 
-// Helper para executar o middleware
-export function runCorsMiddleware(
-    req: NextApiRequest,
-    res: NextApiResponse
-) {
+// Inicializa o middleware do CORS com as opções
+const cors = Cors(corsOptions);
+
+// Helper para rodar o middleware antes do seu handler da API
+export function runCorsMiddleware(req: NextApiRequest, res: NextApiResponse) {
     return new Promise((resolve, reject) => {
         cors(req, res, (result: any) => {
             if (result instanceof Error) {
