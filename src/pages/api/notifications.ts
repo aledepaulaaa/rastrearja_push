@@ -33,7 +33,7 @@ async function checkUserToken(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function registerToken(req: NextApiRequest, res: NextApiResponse) {
-    const { fcmToken, email, deviceId = 'default' } = req.body
+    const { fcmToken, email, deviceId, } = req.body
 
     console.log("api/notifications - Corpo do request: ", req.body)
 
@@ -51,6 +51,9 @@ async function registerToken(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const emailLimpo = limparEmail(email)
+
+    console.log("Email limpado: ", emailLimpo)
+
     const ref = firestoreDb.collection('token-usuarios').doc(emailLimpo)
     const doc = await ref.get()
     let tokens = doc.exists ? doc.data()?.fcmTokens || [] : []
