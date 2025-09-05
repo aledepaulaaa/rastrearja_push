@@ -9,7 +9,7 @@
                 },
                 {
                     "key": "Access-Control-Allow-Origin",
-                    "value": "https://app.rastrearja.com/"
+                    "value": "*"
                 },
                 {
                     "key": "Access-Control-Allow-Methods",
