@@ -2,7 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { firestoreDb } from '@/lib/firebaseAdmin'
 import admin from 'firebase-admin'
-import { runCorsMiddleware } from '@/lib/cors'
+// import { runCorsMiddleware } from '@/lib/cors'
 
 // Interface para o payload do evento que o Traccar envia. Nenhuma alteração aqui.
 interface EventNotificationPayload {
@@ -25,7 +25,7 @@ interface TraccarForwardRequest {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    await runCorsMiddleware(req, res)
+    // await runCorsMiddleware(req, res)
 
     if (req.method !== 'POST') {
         res.setHeader('Allow', ['POST'])
