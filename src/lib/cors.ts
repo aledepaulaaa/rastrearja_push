@@ -4,7 +4,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 // Configuração do CORS
 const cors = Cors({
     methods: ['GET', 'POST', 'OPTIONS', 'PUT', 'DELETE'],
-    origin: '*', // Em produção, especifique os domínios permitidos
+    origin: 'https://app.rastrearja.com', // Em produção, especifique os domínios permitidos
     credentials: true,
 });
 
