@@ -72,6 +72,13 @@ async function registerToken(req: NextApiRequest, res: NextApiResponse) {
 
 async function deleteToken(req: NextApiRequest, res: NextApiResponse) {
     const { email, deviceId, fcmToken } = req.body
+
+    console.log({
+        "Pedido de remoção token": email,
+        "DeviceID": deviceId,
+        "Token": fcmToken
+    })
+
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
 
     const ref = firestoreDb.collection('token-usuarios').doc(email)

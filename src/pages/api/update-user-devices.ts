@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { merge: true } // merge: true garante que não sobrescrevemos os fcmTokens
         );
 
-        console.log(`Device IDs [${deviceIds.join(', ')}] associados ao usuário ${emailLimpo}.`)
+        console.log(`Device IDs [${deviceIds.join(', ')}] associados ao usuário ${emailLimpo} com sucesso!.`)
 
         return res.status(200).json({ success: true, message: 'Dispositivos vinculados com sucesso.' })
 

@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 continue
             }
 
-            console.log(`Enviando notificação para ${userEmail} (${tokens.length} tokens) para o evento do deviceId ${deviceId}`)
+            console.log(`Enviando notificação PUSH para usuário: ${userEmail}, do deviceId: ${deviceId}`)
 
             // 4. Cria o conteúdo da notificação (sua lógica original, sem alterações).
             const makeNotification = (() => {
