@@ -20,15 +20,11 @@ const nextConfig: NextConfig = {
           }, // Em produção, especifique os domínios permitidos
           {
             key: "Access-Control-Allow-Methods",
-            value: "GET,OPTIONS,PATCH,DELETE,POST"
+            value: "GET, OPTIONS, POST, DELETE",
           },
           {
             key: "Access-Control-Allow-Headers",
-            value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version"
-          },
-          {
-            key: "Access-Control-Allow-Credentials", 
-            value: "true",
+            value: "X-Requested-With, Content-Type, Authorization",
           },
         ]
       }
