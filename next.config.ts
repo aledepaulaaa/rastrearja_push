@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Access-Control-Allow-Origin",
-            value: "https://app.rastrearja.com"
+            value: "*"
           }, // Em produção, especifique os domínios permitidos
           {
             key: "Access-Control-Allow-Methods",
