@@ -5,11 +5,11 @@
             "headers": [
                 {
                     "key": "Access-Control-Allow-Credentials",
-                    "value": "false"
+                    "value": "true"
                 },
                 {
                     "key": "Access-Control-Allow-Origin",
-                    "value": "*"
+                    "value": "https://app.rastrearja.com"
                 },
                 {
                     "key": "Access-Control-Allow-Methods",
