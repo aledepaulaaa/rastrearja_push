@@ -3,6 +3,20 @@ import { firestoreDb } from '@/lib/firebaseAdmin'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Ou 'https://app.rastrearja.com'
+    res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,POST,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-Requested-With, Content-Type, Authorization'
+    );
+
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return
+    }
+
     switch (req.method) {
         case 'GET': return checkUserToken(req, res)
         case 'POST': return registerToken(req, res)
@@ -17,7 +31,7 @@ async function checkUserToken(req: NextApiRequest, res: NextApiResponse) {
     const { email, deviceId } = req.query
     console.log("Email: /api/notifications", email)
     console.log("DeviceID /api/notifications: ", deviceId)
-    
+
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
     const ref = firestoreDb.collection('token-usuarios').doc(email as string)
     const doc = await ref.get()

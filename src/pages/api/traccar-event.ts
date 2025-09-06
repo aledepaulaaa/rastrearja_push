@@ -24,10 +24,18 @@ interface TraccarForwardRequest {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Ou 'https://app.rastrearja.com'
+    res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,POST,OPTIONS');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-Requested-With, Content-Type, Authorization'
+    );
 
-    if (req.method !== 'POST') {
-        res.setHeader('Allow', ['POST'])
-        return res.status(405).json({ error: `Método ${req.method} Não Permitido` })
+
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return
     }
 
     const { event, email: emailFromFrontend } = req.body;
