@@ -1,11 +1,9 @@
 // /pages/api/update-user-devices.ts (NOVO ARQUIVO)
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { firestoreDb } from '@/lib/firebaseAdmin'
-// import { runCorsMiddleware } from '@/lib/cors'
 import admin from 'firebase-admin'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // await runCorsMiddleware(req, res)
 
     if (req.method !== 'POST') {
         res.setHeader('Allow', ['POST'])

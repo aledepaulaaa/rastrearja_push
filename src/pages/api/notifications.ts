@@ -1,10 +1,8 @@
 //backend-firebase-nextjs/src/pages/api/notifications.ts
-// import { runCorsMiddleware } from '@/lib/cors'
 import { firestoreDb } from '@/lib/firebaseAdmin'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    // await runCorsMiddleware(req, res)
     switch (req.method) {
         case 'GET': return checkUserToken(req, res)
         case 'POST': return registerToken(req, res)
