@@ -1,176 +1,225 @@
-//backend-firebase-nextjs/src/pages/api/traccar-events.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { firestoreDb } from '@/lib/firebaseAdmin'
 import admin from 'firebase-admin'
 
-// Interface para o payload do evento que o Traccar envia.
-interface EventNotificationPayload {
-    id: number
-    attributes?: Record<string, any>
-    deviceId: number
-    name: string // Este campo é populado pelo Traccar com o nome do dispositivo
-    type: string
-    eventTime: string
-    positionId?: number
-    geofenceId?: number
-    maintenanceId?: number
+// Função auxiliar para construir a mensagem FCM
+function buildFcmMessage(notification: any, deviceId: string, token: string) {
+    const clickAction = `/device/${deviceId}`;
+    return {
+        token,
+        notification: {
+            title: notification.title,
+            body: notification.body,
+            icon: '/pwa-192x192.png',
+        },
+        data: {
+            deviceId: String(deviceId),
+            type: notification.type,
+            timestamp: new Date().toISOString(),
+            click_action: clickAction
+        },
+        webpush: {
+            headers: {
+                Urgency: 'high'
+            },
+            fcmOptions: {
+                link: clickAction
+            },
+            notification: {
+                icon: '/pwa-192x192.png',
+                badge: '/pwa-64x64.png',
+                tag: `rastrearja-${deviceId}-${Date.now()}`,
+                requireInteraction: true,
+                actions: [
+                    {
+                        action: 'open_device',
+                        title: 'Ver Dispositivo'
+                    }
+                ],
+                vibrate: [200, 100, 200]
+            }
+        },
+        android: {
+            priority: "high",
+            notification: {
+                icon: '/pwa-192x192.png',
+                color: '#3F51B5',
+                clickAction: clickAction,
+                channelId: 'rastrearja-alerts',
+                priority: 'high',
+                defaultSound: true
+            }
+        },
+        apns: {
+            payload: {
+                aps: {
+                    'mutable-content': 1,
+                    'content-available': 1,
+                    sound: 'default'
+                }
+            },
+            fcmOptions: {
+                imageUrl: '/pwa-192x192.png'
+            }
+        }
+    };
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Ou 'https://app.rastrearja.com'
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,POST,OPTIONS');
     res.setHeader(
         'Access-Control-Allow-Headers',
         'X-Requested-With, Content-Type, Authorization'
     );
 
-
     if (req.method === 'OPTIONS') {
         res.status(200).end();
-        return
+        return;
     }
 
     const { event, email: emailFromFrontend } = req.body;
-    console.log("api/traccar-event - Corpo do request recebido:", req.body)
+    console.log("[traccar-event] Payload recebido:", JSON.stringify(req.body, null, 2));
 
-    // Validação para garantir que o objeto 'event' e seus campos essenciais existem.
     if (!event || !event.deviceId || !event.type) {
-        return res.status(400).json({ error: 'Dados de evento inválidos ou malformados.' })
+        return res.status(400).json({ error: 'Dados de evento inválidos.' });
     }
 
     try {
-        const deviceId = event.deviceId
-        let userDocs: any = [];
+        const deviceId = event.deviceId;
+        const messaging = admin.messaging();
+        let successCount = 0;
+        let failureCount = 0;
 
-        // --- LÓGICA DE BUSCA CORRIGIDA ---
-        if (emailFromFrontend) {
-            // Se o frontend enviou o email (para testes), busca por ele.
-            console.log(`Buscando usuário pelo email fornecido pelo frontend: ${emailFromFrontend}`)
-            const userDoc = await firestoreDb.collection('token-usuarios').doc(emailFromFrontend).get()
-            if (userDoc.exists) {
-                userDocs.push(userDoc);
-            }
-        } else {
-            // Se veio do Traccar, busca pelo deviceId.
-            console.log(`Buscando usuário pelo deviceId: ${deviceId}`)
-            const usersSnapshot = await firestoreDb.collection('token-usuarios')
+        // Busca usuários
+        const usersQuery = emailFromFrontend
+            ? firestoreDb.collection('token-usuarios').doc(emailFromFrontend).get()
+                .then(doc => doc.exists ? [doc] : [])
+            : firestoreDb.collection('token-usuarios')
                 .where('deviceIds', 'array-contains', deviceId)
                 .get()
+                .then(snapshot => snapshot.docs);
 
-            if (!usersSnapshot.empty) {
-                userDocs = usersSnapshot.docs;
-            }
+        const userDocs = await usersQuery;
+
+        if (!userDocs.length) {
+            console.log(`Nenhum usuário encontrado para deviceId: ${deviceId}`);
+            return res.status(200).json({ message: 'Nenhum usuário para notificar.' });
         }
 
-        if (userDocs.length === 0) {
-            console.log(`Nenhum usuário encontrado para o deviceId: ${deviceId}. Evento ignorado.`)
-            return res.status(200).json({ message: `Nenhum usuário associado ao deviceId ${deviceId}.` })
-        }
-
-        console.log(`Encontrado(s) ${userDocs.length} usuário(s) para notificar sobre o deviceId ${deviceId}`);
-
-        let totalSent = 0
-        let totalFailed = 0
-        let totalInvalidRemoved = 0
-
-        // Processa a notificação para cada usuário encontrado
-        for (const userDoc of userDocs) {
-            const userEmail = userDoc.id
-            const fcmTokenData: any[] = userDoc.data()?.fcmTokens || []
-            const tokens: string[] = fcmTokenData.map(t => t.fcmToken).filter(Boolean)
-
-            if (tokens.length === 0) {
-                console.log(`Nenhum token FCM válido encontrado para o usuário ${userEmail}. Pulando.`)
-                continue
+        // Prepara notificação
+        const makeNotification = (() => {
+            const base = event.name || `Dispositivo ${event.deviceId}`;
+            switch (event.type) {
+                case 'deviceOnline': return {
+                    title: 'Dispositivo Online',
+                    body: `${base} está online`,
+                    type: 'status'
+                };
+                case 'deviceOffline': return {
+                    title: 'Dispositivo Offline',
+                    body: `${base} está offline`,
+                    type: 'status'
+                };
+                case 'deviceMoving': return {
+                    title: 'Movimento Detectado',
+                    body: `${base} está se movendo`,
+                    type: 'movement'
+                };
+                case 'deviceStopped': return {
+                    title: 'Dispositivo Parado',
+                    body: `${base} está parado`,
+                    type: 'movement'
+                };
+                case 'ignitionOn': return {
+                    title: 'Ignição Ligada',
+                    body: `${base}: ignição ligada`,
+                    type: 'ignition'
+                };
+                case 'ignitionOff': return {
+                    title: 'Ignição Desligada',
+                    body: `${base}: ignição desligada`,
+                    type: 'ignition'
+                };
+                case 'geofenceEnter': return {
+                    title: 'Cerca Virtual',
+                    body: `${base} entrou em ${event.attributes?.geofenceName || ''}`,
+                    type: 'geofence'
+                };
+                case 'geofenceExit': return {
+                    title: 'Cerca Virtual',
+                    body: `${base} saiu de ${event.attributes?.geofenceName || ''}`,
+                    type: 'geofence'
+                };
+                case 'alarm': return {
+                    title: 'Alarme',
+                    body: `${base}: ${event.attributes?.alarm || 'Alarme ativado'}`,
+                    type: 'alarm'
+                };
+                default: return {
+                    title: 'Notificação',
+                    body: `${base}: ${event.type}`,
+                    type: 'other'
+                };
             }
+        })();
 
-            console.log(`Enviando notificação PUSH para usuário: ${userEmail}, do deviceId: ${deviceId}`)
+        // Processa cada usuário
+        const sendPromises = userDocs.map(async (userDoc) => {
+            const tokens = userDoc.data()?.fcmTokens || [];
+            if (!tokens.length) return;
 
-            // 4. Cria o conteúdo da notificação (sua lógica original, sem alterações).
-            const makeNotification = (() => {
-                const base = event.name || `Dispositivo ${event.deviceId}`
-                switch (event.type) {
-                    case 'deviceOnline': return { title: 'Dispositivo Online', body: `${base} está online` }
-                    case 'deviceOffline': return { title: 'Dispositivo Offline', body: `${base} está offline` }
-                    case 'deviceMoving': return { title: 'Movimento Detectado', body: `${base} está se movendo` }
-                    case 'deviceStopped': return { title: 'Dispositivo Parado', body: `${base} está parado` }
-                    case 'ignitionOn': return { title: 'Ignição Ligada', body: `${base}: ignição ligada` }
-                    case 'ignitionOff': return { title: 'Ignição Desligada', body: `${base}: ignição desligada` }
-                    case 'geofenceEnter': return { title: 'Cerca Virtual', body: `${base} entrou em ${event.attributes?.geofenceName || ''}` }
-                    case 'geofenceExit': return { title: 'Cerca Virtual', body: `${base} saiu de ${event.attributes?.geofenceName || ''}` }
-                    case 'alarm': return { title: 'Alarme', body: `${base}: ${event.attributes?.alarm || 'Alarme ativado'}` }
-                    default: return { title: 'Notificação', body: `${base}: ${event.type}` }
-                }
-            })()
+            // Envia para cada token do usuário
+            for (const tokenData of tokens) {
+                try {
+                    const message: any = buildFcmMessage(
+                        makeNotification,
+                        String(deviceId),
+                        tokenData.fcmToken
+                    );
 
-            // 5. Monta e envia a mensagem FCM (sua lógica original, sem alterações).
-            const message: admin.messaging.MulticastMessage = {
-                tokens,
-                notification: {
-                    title: makeNotification.title,
-                    body: makeNotification.body,
-                },
-                data: {
-                    name: String(event.name),
-                    type: event.type,
-                    eventTime: event.eventTime,
-                    deviceId: String(event.deviceId),
-                    click_action: `/device/${event.deviceId}` // Adiciona ação de clique
-                },
-                android: {
-                    priority: "high" // Garante prioridade alta para Android
-                },
-                apns: {
-                    payload: {
-                        aps: {
-                            contentAvailable: true // Importante para iOS
-                        }
+                    const messageId = await messaging.send(message);
+                    console.log(`✅ FCM enviado para ${userDoc.id}, messageId:`, messageId);
+                    successCount++;
+
+                    // Atualiza último uso do token
+                    await userDoc.ref.update({
+                        [`fcmTokens.${tokens.indexOf(tokenData)}.lastUsed`]: admin.firestore.FieldValue.serverTimestamp(),
+                        [`fcmTokens.${tokens.indexOf(tokenData)}.lastEvent`]: event.type
+                    });
+
+                } catch (err: any) {
+                    console.error(`❌ Erro ao enviar para ${userDoc.id}:`, err.message);
+                    failureCount++;
+
+                    if (err.code === 'messaging/registration-token-not-registered') {
+                        // Remove token inválido
+                        const validTokens = tokens.filter((t: any) => t.fcmToken !== tokenData.fcmToken);
+                        await userDoc.ref.update({
+                            fcmTokens: validTokens,
+                            lastTokenRemoval: admin.firestore.FieldValue.serverTimestamp()
+                        });
+                        console.log(`Token removido para ${userDoc.id}`);
                     }
                 }
             }
+        });
 
-            const response = await admin.messaging().sendEachForMulticast(message)
-            totalSent += response.successCount
-            totalFailed += response.failureCount
-
-            console.log(`Resultado do envio FCM: ${response.successCount} com sucesso, ${response.failureCount} com falha`)
-
-            if (response.failureCount > 0) {
-                response.responses.forEach((resp, idx) => {
-                    if (!resp.success) {
-                        console.error(`Falha no envio para o token ${ tokens[idx]}:, resp.error`);
-                    }
-                });
-            }
-
-            // 6. Lógica de limpeza de tokens inválidos, agora adaptada para o loop.
-            const invalidTokens: string[] = []
-            response.responses.forEach((r, i) => {
-                if (!r.success && ['messaging/invalid-registration-token', 'messaging/registration-token-not-registered'].includes(r.error?.code || '')) {
-                    invalidTokens.push(tokens[i])
-                }
-            })
-
-            if (invalidTokens.length > 0) {
-                console.log(`Encontrados ${invalidTokens.length} tokens inválidos para ${userEmail}:`, invalidTokens)
-                const validTokens = fcmTokenData.filter(t => !invalidTokens.includes(t.fcmToken))
-                await userDoc.ref.update({ fcmTokens: validTokens })
-                totalInvalidRemoved += invalidTokens.length
-                console.log(`Tokens inválidos de ${userEmail} removidos do Firestore.`)
-            }
-        }
+        await Promise.all(sendPromises);
 
         return res.status(200).json({
             success: true,
-            message: 'Processamento de evento concluído.',
-            sent: totalSent,
-            failed: totalFailed,
-            invalidRemoved: totalInvalidRemoved,
-        })
+            sent: successCount,
+            failed: failureCount,
+            timestamp: new Date().toISOString()
+        });
 
     } catch (err: any) {
-        console.error('[traccar-event] erro', err)
-        return res.status(500).json({ error: 'Erro interno ao processar evento.' })
+        console.error('[traccar-event] Erro:', err);
+        return res.status(500).json({
+            error: 'Erro interno ao processar evento.',
+            details: err.message
+        });
     }
 }
