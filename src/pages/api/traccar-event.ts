@@ -39,10 +39,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Dados de evento inválidos ou malformados.' })
     }
 
-    if (!event || !event.deviceId || !event.type) {
-        return res.status(400).json({ error: 'Dados de evento inválidos ou malformados.' })
-    }
-
     try {
         const deviceId = event.deviceId
         let userDocs: any = [];
@@ -111,12 +107,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // 5. Monta e envia a mensagem FCM (sua lógica original, sem alterações).
             const message: admin.messaging.MulticastMessage = {
                 tokens,
-                notification: makeNotification,
                 data: {
+                    title: makeNotification.title,
+                    body: makeNotification.body,
                     name: String(event.name),
                     type: event.type,
                     eventTime: event.eventTime,
-                    deviceId: String(event.deviceId) // Adicionado para referência no cliente
+                    deviceId: String(event.deviceId)
                 },
                 webpush: {
                     fcmOptions: { link: `/device/${event.deviceId}` },
