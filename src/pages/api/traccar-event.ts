@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import { firestoreDb } from '@/lib/firebaseAdmin'
 import admin from 'firebase-admin'
 
-// Interface para o payload do evento que o Traccar envia. Nenhuma alteração aqui.
+// Interface para o payload do evento que o Traccar envia.
 interface EventNotificationPayload {
     id: number
     attributes?: Record<string, any>
@@ -14,13 +14,6 @@ interface EventNotificationPayload {
     positionId?: number
     geofenceId?: number
     maintenanceId?: number
-}
-
-// Interface para o corpo da requisição que o Traccar envia.
-// Ele envia um objeto que contém a chave "event".
-interface TraccarForwardRequest {
-    event: EventNotificationPayload
-    // O Traccar também pode enviar um objeto "position", mas não o usaremos aqui.
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -125,7 +118,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     eventTime: event.eventTime,
                     deviceId: String(event.deviceId) // Adicionado para referência no cliente
                 },
-                android: { priority: 'high', notification: { channelId: 'high_importance_channel', clickAction: 'FLUTTER_NOTIFICATION_CLICK' } },
                 apns: { payload: { aps: { sound: 'default', badge: 1 } }, headers: { 'apns-priority': '10' } },
                 webpush: { fcmOptions: { link: `/device/${event.deviceId}` }, notification: { icon: '/icon-192x192.png', badge: '/icon-64x64.png', vibrate: [200, 100, 200] } }
             }
@@ -133,6 +125,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const response = await admin.messaging().sendEachForMulticast(message)
             totalSent += response.successCount
             totalFailed += response.failureCount
+
+            console.log(`Resultado do envio FCM: ${response.successCount} com sucesso, ${response.failureCount} com falha`)
+
+            if (response.failureCount > 0) {
+                response.responses.forEach((resp, idx) => {
+                    if (!resp.success) {
+                        console.error(`Falha no envio para o token ${ tokens[idx]}:, resp.error`);
+                    }
+                });
+            }
 
             // 6. Lógica de limpeza de tokens inválidos, agora adaptada para o loop.
             const invalidTokens: string[] = []
