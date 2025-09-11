@@ -118,8 +118,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     eventTime: event.eventTime,
                     deviceId: String(event.deviceId) // Adicionado para referência no cliente
                 },
-                apns: { payload: { aps: { sound: 'default', badge: 1 } }, headers: { 'apns-priority': '10' } },
-                webpush: { fcmOptions: { link: `/device/${event.deviceId}` }, notification: { icon: '/icon-192x192.png', badge: '/icon-64x64.png', vibrate: [200, 100, 200] } }
+                webpush: {
+                    fcmOptions: { link: `/device/${event.deviceId}` },
+                    notification: {
+                        icon: '/icon-192x192.png',
+                        badge: '/icon-64x64.png',
+                    }
+                }
             }
 
             const response = await admin.messaging().sendEachForMulticast(message)
