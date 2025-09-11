@@ -107,19 +107,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // 5. Monta e envia a mensagem FCM (sua lógica original, sem alterações).
             const message: admin.messaging.MulticastMessage = {
                 tokens,
-                data: {
+                notification: {
                     title: makeNotification.title,
                     body: makeNotification.body,
+                },
+                data: {
                     name: String(event.name),
                     type: event.type,
                     eventTime: event.eventTime,
-                    deviceId: String(event.deviceId)
+                    deviceId: String(event.deviceId),
+                    click_action: `/device/${event.deviceId}` // Adiciona ação de clique
                 },
-                webpush: {
-                    fcmOptions: { link: `/device/${event.deviceId}` },
-                    notification: {
-                        icon: '/icon-192x192.png',
-                        badge: '/icon-64x64.png',
+                android: {
+                    priority: "high" // Garante prioridade alta para Android
+                },
+                apns: {
+                    payload: {
+                        aps: {
+                            contentAvailable: true // Importante para iOS
+                        }
                     }
                 }
             }
