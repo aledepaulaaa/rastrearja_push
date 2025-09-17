@@ -7,10 +7,9 @@ function buildFcmMessage(notification: any, deviceId: string, token: string) {
     const clickAction = `/device/${deviceId}`;
     return {
         token,
-        notification: {
+        notification: { // Apenas os campos básicos como title e body são permitidos aqui
             title: notification.title,
             body: notification.body,
-            icon: '/pwa-192x192.png',
         },
         data: {
             deviceId: String(deviceId),
@@ -25,7 +24,7 @@ function buildFcmMessage(notification: any, deviceId: string, token: string) {
                 link: clickAction
             },
             notification: {
-                icon: '/pwa-192x192.png',
+                icon: '/pwa-192x192.png', // Deixe o campo icon apenas aqui.
                 badge: '/pwa-64x64.png',
                 tag: `rastrearja-${deviceId}-${Date.now()}`,
                 requireInteraction: true,
