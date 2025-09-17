@@ -1,5 +1,5 @@
 //backend-firebase-nextjs/src/pages/api/notifications.ts
-import { firestoreDb } from '@/lib/firebaseAdmin'
+import { getFirebaseFirestore } from '@/lib/firebaseAdmin';
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -33,6 +33,7 @@ async function checkUserToken(req: NextApiRequest, res: NextApiResponse) {
     console.log("DeviceID /api/notifications: ", deviceId)
 
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
+    const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(email as string)
     const doc = await ref.get()
     if (!doc.exists) return res.status(200).json({ hasValidToken: false })
@@ -65,7 +66,7 @@ async function registerToken(req: NextApiRequest, res: NextApiResponse) {
     const emailLimpo = limparEmail(email)
 
     console.log("Email limpado: ", emailLimpo)
-
+    const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(emailLimpo)
     const doc = await ref.get()
     let tokens = doc.exists ? doc.data()?.fcmTokens || [] : []
@@ -97,7 +98,7 @@ async function deleteToken(req: NextApiRequest, res: NextApiResponse) {
     })
 
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
-
+    const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(email)
     const doc = await ref.get()
     if (!doc.exists) return res.status(200).json({ success: true })

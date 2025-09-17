@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { firestoreDb } from '@/lib/firebaseAdmin'
 import admin from 'firebase-admin'
+import { getFirebaseFirestore, getFirebaseMessaging } from '@/lib/firebaseAdmin';
 
 // Função auxiliar para construir a mensagem FCM
 function buildFcmMessage(notification: any, deviceId: string, token: string) {
@@ -88,7 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         const deviceId = event.deviceId;
-        const messaging = admin.messaging();
+        const messaging = getFirebaseMessaging()
+        const firestoreDb = getFirebaseFirestore()
         let successCount = 0;
         let failureCount = 0;
 

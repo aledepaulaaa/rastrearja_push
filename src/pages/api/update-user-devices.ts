@@ -1,7 +1,7 @@
 // /pages/api/update-user-devices.ts (NOVO ARQUIVO)
 import type { NextApiRequest, NextApiResponse } from 'next'
-import { firestoreDb } from '@/lib/firebaseAdmin'
 import admin from 'firebase-admin'
+import { getFirebaseFirestore } from '@/lib/firebaseAdmin';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -32,6 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
+        const firestoreDb = getFirebaseFirestore()
         const userDocRef = firestoreDb.collection('token-usuarios').doc(emailLimpo)
 
         await userDocRef.set(

@@ -1,38 +1,83 @@
-// src/lib/firebaseAdmin.ts
-import * as admin from 'firebase-admin';
+//rastrearja_push/src/lib/firebaseAdmin.ts
+import { initializeApp, getApps, cert, App } from 'firebase-admin/app'
+import { getAuth } from 'firebase-admin/auth'
+import { getFirestore } from 'firebase-admin/firestore'
+import { getMessaging } from 'firebase-admin/messaging'
 
-// Garante que não inicializamos o app múltiplas vezes
-if (!admin.apps.length) {
-    try {
-        const privateKey = process.env.FB_ADMIN_PRIVATE_KEY;
-        if (!privateKey) {
-            throw new Error('A variável de ambiente FB_ADMIN_PRIVATE_KEY não está definida.');
-        }
-        // Não é necessário substituir \\n por \n manualmente aqui se estiver corretamente
-        // formatado no .env.local com aspas e novas linhas literais.
-        // Se você tiver problemas, descomente e ajuste a linha abaixo:
-        // const formattedPrivateKey = privateKey.replace(/\\n/g, '\n');
+// ✅ Função para formatar chave privada
+function formatPrivateKey(key: string): string {
+    if (!key) return ''
 
-        admin.initializeApp({
-            credential: admin.credential.cert({
-                projectId: process.env.FB_ADMIN_PROJECT_ID,
-                clientEmail: process.env.FB_ADMIN_CLIENT_EMAIL,
-                // Use privateKey diretamente, ou formattedPrivateKey se precisar ajustar
-                privateKey: privateKey,
-            }),
-        });
-        console.log("Firebase Admin SDK inicializado com sucesso.");
-    } catch (error: any) {
-        console.error("!!!!!!!!!! FALHA AO INICIALIZAR FIREBASE ADMIN SDK !!!!!!!!!!");
-        console.error("Verifique as variáveis de ambiente FB_ADMIN_* e o formato da chave privada no .env.local.");
-        console.error("Erro:", error.message);
-        // Lançar o erro pode impedir que a API funcione se a inicialização falhar
-        // throw error; // Decida se quer travar a API ou apenas logar o erro
+    // Remove aspas duplas e formata quebras de linha
+    return key
+        .replace(/\\n/g, '\n')
+        .replace(/^"/, '')
+        .replace(/"$/, '')
+        .trim()
+}
+
+// ✅ Validar variáveis de ambiente
+function validateEnvVars() {
+    const requiredVars = [
+        'FB_ADMIN_PROJECT_ID',
+        'FB_ADMIN_CLIENT_EMAIL',
+        'FB_ADMIN_PRIVATE_KEY'
+    ]
+
+    const missing = requiredVars.filter(varName => !process.env[varName])
+
+    if (missing.length > 0) {
+        throw new Error(`Variáveis de ambiente Firebase não configuradas: ${missing.join(', ')}`)
     }
 }
 
-const firestoreDb = admin.firestore();
-const messaging = admin.messaging();
+// ✅ Inicializar Firebase Admin SDK
+let firebaseApp: App | null = null
 
-// Exporta as instâncias necessárias
-export { firestoreDb, messaging, admin }; // Exporta admin se precisar de outras funcionalidades
+export function getFirebaseApp(): App {
+    if (firebaseApp) return firebaseApp
+
+    try {
+        // Verificar se já existe uma instância
+        const existingApps = getApps()
+        if (existingApps.length > 0) {
+            firebaseApp = existingApps[0]
+            return firebaseApp
+        }
+
+        // Validar variáveis de ambiente
+        validateEnvVars()
+
+        // Inicializar nova instância
+        firebaseApp = initializeApp({
+            credential: cert({
+                projectId: process.env.FB_ADMIN_PROJECT_ID!,
+                clientEmail: process.env.FB_ADMIN_CLIENT_EMAIL!,
+                privateKey: formatPrivateKey(process.env.FB_ADMIN_PRIVATE_KEY!),
+            }),
+        })
+
+        console.log('✅ Firebase Admin SDK inicializado:', firebaseApp.name)
+        return firebaseApp
+
+    } catch (error) {
+        console.error('❌ Erro ao inicializar Firebase Admin SDK:', error)
+        throw new Error(`Firebase Admin SDK initialization failed: ${error}`)
+    }
+}
+
+// ✅ Funções auxiliares
+export function getFirebaseFirestore() {
+    const app = getFirebaseApp()
+    return getFirestore(app)
+}
+
+export function getFirebaseMessaging() {
+    const app = getFirebaseApp()
+    return getMessaging(app)
+}
+
+export function getFirebaseAuth() {
+    const app = getFirebaseApp()
+    return getAuth(app)
+}
