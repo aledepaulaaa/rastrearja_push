@@ -16,7 +16,6 @@ function buildFcmMessage(notification: any, deviceId: string, token: string) {
             deviceId: String(deviceId),
             type: notification.type,
             timestamp: new Date().toISOString(),
-            click_action: clickAction
         },
         webpush: {
             headers: {
@@ -36,32 +35,8 @@ function buildFcmMessage(notification: any, deviceId: string, token: string) {
                         title: 'Ver Dispositivo'
                     }
                 ],
-                vibrate: [200, 100, 200]
             }
         },
-        android: {
-            priority: "high",
-            notification: {
-                icon: '/pwa-192x192.png',
-                color: '#3F51B5',
-                clickAction: clickAction,
-                channelId: 'rastrearja-alerts',
-                priority: 'high',
-                defaultSound: true
-            }
-        },
-        apns: {
-            payload: {
-                aps: {
-                    'mutable-content': 1,
-                    'content-available': 1,
-                    sound: 'default'
-                }
-            },
-            fcmOptions: {
-                imageUrl: '/pwa-192x192.png'
-            }
-        }
     };
 }
 
