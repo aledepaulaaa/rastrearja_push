@@ -2,82 +2,6 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import admin from 'firebase-admin'
 import { getFirebaseFirestore, getFirebaseMessaging } from '@/lib/firebaseAdmin';
 
-// Função auxiliar para construir a mensagem FCM
-function buildFcmMessage(notification: any, deviceId: string, token: string) {
-    const clickAction = `/device/${deviceId}`;
-    return {
-        token,
-        notification: {
-            title: notification.title,
-            body: notification.body,
-            icon: '/pwa-192x192.png',
-            badge: '/pwa-64x64.png',
-            // Adiciona canal para Android
-            android_channel_id: "rastrearja_alerts"
-        },
-        data: {
-            deviceId: String(deviceId),
-            type: notification.type,
-            timestamp: new Date().toISOString(),
-            click_action: clickAction,
-            link: clickAction
-        },
-        android: {
-            priority: "high",
-            notification: {
-                icon: '/pwa-192x192.png',
-                clickAction: clickAction,
-                channelId: "rastrearja_alerts",
-                priority: "high",
-                defaultVibrateTimings: true,
-                defaultSound: true,
-                visibility: "public"
-            }
-        },
-        apns: {
-            headers: {
-                "apns-priority": "10"
-            },
-            payload: {
-                aps: {
-                    alert: {
-                        title: notification.title,
-                        body: notification.body
-                    },
-                    sound: "default",
-                    badge: 1,
-                    "mutable-content": 1,
-                    "content-available": 1
-                }
-            }
-        },
-        webpush: {
-            headers: {
-                Urgency: "high",
-                TTL: "86400"
-            },
-            notification: {
-                icon: '/pwa-192x192.png',
-                badge: '/pwa-64x64.png',
-                tag: `rastrearja-${deviceId}-${Date.now()}`,
-                renotify: true,
-                requireInteraction: true,
-                vibrate: [200, 100, 200],
-                actions: [
-                    { 
-                        action: 'open_device', 
-                        title: 'Ver Dispositivo' 
-                    }
-                ],
-                data: {
-                    link: clickAction,
-                    deviceId: String(deviceId)
-                }
-            }
-        }
-    };
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -123,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Prepara notificação
-        const makeNotification = (() => {
+        const notificationContent = (() => {
             const base = event.name || `Dispositivo ${event.deviceId}`;
             switch (event.type) {
                 case 'deviceOnline': return {
@@ -185,29 +109,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (!tokens.length) return;
 
             // Envia para cada token do usuário
-            for (let i = 0; i < tokens.length; i++) {
-                const tokenData = tokens[i]
+            for (const tokenData of tokens) {
                 try {
-                    const message: any = buildFcmMessage(
-                        makeNotification,
-                        String(deviceId),
-                        tokenData.fcmToken
-                    );
+                    const clickAction = `/device/${deviceId}`;
+
+                    // --- PAYLOAD SIMPLIFICADO E CORRIGIDO ---
+                    // Construído diretamente aqui, sem a função buildFcmMessage.
+                    const message = {
+                        token: tokenData.fcmToken,
+
+                        // 1. Objeto 'notification' BÁSICO (apenas title e body)
+                        // Isso garante compatibilidade e evita o erro.
+                        notification: {
+                            title: notificationContent.title,
+                            body: notificationContent.body,
+                        },
+
+                        // 2. Objeto 'data' para informações customizadas
+                        // Seu Service Worker pode ler isso para saber o que fazer.
+                        data: {
+                            deviceId: String(deviceId),
+                            type: notificationContent.type,
+                            click_action: clickAction, // URL para abrir
+                        },
+
+                        // 3. Objeto 'webpush' para customizações da PWA (Web)
+                        // É AQUI que vão ícones, badges, ações, etc.
+                        webpush: {
+                            headers: {
+                                Urgency: 'high'
+                            },
+                            notification: {
+                                icon: '/pwa-192x192.png',
+                                badge: '/pwa-64x64.png',
+                                tag: `rastrearja-${deviceId}`, // Agrupa notificações do mesmo dispositivo
+                                requireInteraction: true,
+                                actions: [
+                                    {
+                                        action: 'open_device_action',
+                                        title: 'Ver Dispositivo'
+                                    }
+                                ]
+                            },
+                            fcm_options: {
+                                link: clickAction // Define o link de clique para navegadores que suportam
+                            }
+                        },
+                    };
+                    // --- FIM DO PAYLOAD ---
 
                     const messageId = await messaging.send(message);
-                    // console.log(`✅ FCM enviado para ${userDoc.id}, messageId:`, messageId);
-                    console.log(`✅ FCM enviado para ${userDoc.id}:`, {
-                        messageId,
-                        token: tokenData.fcmToken.substring(0, 10) + '...',
-                        notification: message.notification,
-                        data: message.data
-                    });
+                    console.log(`✅ FCM enviado para ${userDoc.id}, messageId:`, messageId);
                     successCount++;
 
                     // Atualiza último uso do token
                     await userDoc.ref.update({
-                        [`fcmTokens.${tokens.indexOf(tokenData)}.lastUsed`]: admin.firestore.FieldValue.serverTimestamp(),
-                        [`fcmTokens.${tokens.indexOf(tokenData)}.lastEvent`]: event.type
+                        [`fcmTokens.${tokens.findIndex((t: any) => t.fcmToken === tokenData.fcmToken)}.lastUsed`]: admin.firestore.FieldValue.serverTimestamp(),
+                        [`fcmTokens.${tokens.findIndex((t: any) => t.fcmToken === tokenData.fcmToken)}.lastEvent`]: event.type
                     });
 
                 } catch (err: any) {
@@ -215,7 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     failureCount++;
 
                     if (err.code === 'messaging/registration-token-not-registered') {
-                        // Remove token inválido
+                        // Remove token inválido (lógica inalterada)
                         const validTokens = tokens.filter((t: any) => t.fcmToken !== tokenData.fcmToken);
                         await userDoc.ref.update({
                             fcmTokens: validTokens,
