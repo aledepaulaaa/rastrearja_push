@@ -4,36 +4,31 @@ import { getFirebaseFirestore, getFirebaseMessaging } from '@/lib/firebaseAdmin'
 
 // Função auxiliar para construir a mensagem FCM
 function buildFcmMessage(notification: any, deviceId: string, token: string) {
-    const clickAction = `/device/${deviceId}`;
+    const clickAction = `/device/${deviceId}`; // URL relativa que o SW transforma em absoluta
     return {
         token,
-        notification: { // Apenas os campos básicos como title e body são permitidos aqui
+        notification: {
             title: notification.title,
             body: notification.body,
         },
+        // Dados que sempre acompanharão a notificação (acessível em event.notification.data)
         data: {
             deviceId: String(deviceId),
             type: notification.type,
             timestamp: new Date().toISOString(),
+            link: clickAction // <<--- importante
         },
         webpush: {
-            headers: {
-                Urgency: 'high'
-            },
-            fcmOptions: {
-                link: clickAction
-            },
+            headers: { Urgency: 'high' },
+            fcmOptions: { link: clickAction },
             notification: {
-                icon: '/pwa-192x192.png', // Deixe o campo icon apenas aqui.
+                icon: '/pwa-192x192.png',
                 badge: '/pwa-64x64.png',
                 tag: `rastrearja-${deviceId}-${Date.now()}`,
                 requireInteraction: true,
-                actions: [
-                    {
-                        action: 'open_device',
-                        title: 'Ver Dispositivo'
-                    }
-                ],
+                actions: [{ action: 'open_device', title: 'Ver Dispositivo' }],
+                // Também colocar o link aqui para redundância/compatibilidade
+                data: { link: clickAction }
             }
         },
     };
@@ -146,7 +141,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (!tokens.length) return;
 
             // Envia para cada token do usuário
-            for (const tokenData of tokens) {
+            for (let i = 0; i < tokens.length; i++) {
+                const tokenData = tokens[i]
                 try {
                     const message: any = buildFcmMessage(
                         makeNotification,
@@ -160,8 +156,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
                     // Atualiza último uso do token
                     await userDoc.ref.update({
-                        [`fcmTokens.${tokens.indexOf(tokenData)}.lastUsed`]: admin.firestore.FieldValue.serverTimestamp(),
-                        [`fcmTokens.${tokens.indexOf(tokenData)}.lastEvent`]: event.type
+                        [`fcmTokens.${i}.lastUsed`]: admin.firestore.FieldValue.serverTimestamp(),
+                        [`fcmTokens.${i}.lastEvent`]: event.type
                     });
 
                 } catch (err: any) {
