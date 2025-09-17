@@ -1,4 +1,4 @@
-// /pages/api/update-user-devices.ts (NOVO ARQUIVO)
+// /pages/api/update-user-devices.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import admin from 'firebase-admin'
 import { getFirebaseFirestore } from '@/lib/firebaseAdmin';

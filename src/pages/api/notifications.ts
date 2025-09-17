@@ -89,25 +89,40 @@ async function registerToken(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function deleteToken(req: NextApiRequest, res: NextApiResponse) {
-    const { email, deviceId, fcmToken } = req.body
+    const { email, fcmToken } = req.body
 
     console.log({
         "Pedido de remoção token": email,
-        "DeviceID": deviceId,
         "Token": fcmToken
     })
 
-    if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
+    if (!email || !fcmToken) {
+        return res.status(400).json({ error: 'Email e fcmToken são obrigatórios para a remoção.' })
+    }
+
     const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(email)
     const doc = await ref.get()
-    if (!doc.exists) return res.status(200).json({ success: true })
+
+    if (!doc.exists) {
+        // Se o documento não existe, o token já não está lá. Sucesso.
+        return res.status(200).json({ success: true })
+    }
 
     let tokens = doc.data()?.fcmTokens || []
-    if (deviceId) tokens = tokens.filter((t: any) => t.deviceId !== deviceId)
-    else if (fcmToken) tokens = tokens.filter((t: any) => t.fcmToken !== fcmToken)
-    else return res.status(400).json({ error: 'Token ou deviceId necessário' })
 
-    await ref.update({ fcmTokens: tokens })
-    return res.status(200).json({ success: true })
+    // Filtra o array para remover o objeto que contém o fcmToken
+    const newTokens = tokens.filter((t: any) => t.fcmToken !== fcmToken)
+
+    // Se o array mudou de tamanho, significa que um token foi removido.
+    if (newTokens.length !== tokens.length) {
+        await ref.update({ fcmTokens: newTokens })
+        console.log(`Token do dispositivo para ${email} removido com sucesso.`)
+        return res.status(200).json({ success: true })
+    } else {
+        // O token não foi encontrado, mas o cliente solicitou a remoção.
+        // Trate como sucesso para evitar loops de erro.
+        console.log(`Token ${fcmToken} não encontrado no banco de dados.`)
+        return res.status(200).json({ success: true })
+    }
 }
