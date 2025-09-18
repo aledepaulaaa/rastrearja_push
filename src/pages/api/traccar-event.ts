@@ -1,204 +1,169 @@
-import type { NextApiRequest, NextApiResponse } from 'next'
-import admin from 'firebase-admin'
-import { getFirebaseFirestore, getFirebaseMessaging } from '@/lib/firebaseAdmin';
+// src/pages/api/traccar-event.ts
+import type { NextApiRequest, NextApiResponse } from "next"
+import admin from "firebase-admin"
+import { getFirebaseFirestore, getFirebaseMessaging } from "@/lib/firebaseAdmin"
+
+// (Opcional, mas recomendado) Definir uma interface para o seu token
+interface FcmToken {
+    fcmToken: string
+    userAgent: string
+    lastUsed?: admin.firestore.Timestamp
+    lastEvent?: string
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,POST,OPTIONS');
+    // Configuração de CORS (sem alterações, está correto)
+    res.setHeader("Access-Control-Allow-Credentials", "true")
+    res.setHeader("Access-Control-Allow-Origin", "*")
+    res.setHeader("Access-Control-Allow-Methods", "GET,DELETE,POST,OPTIONS")
     res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-Requested-With, Content-Type, Authorization'
-    );
+        "Access-Control-Allow-Headers",
+        "X-Requested-With, Content-Type, Authorization"
+    )
 
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+    if (req.method === "OPTIONS") {
+        res.status(200).end()
+        return
     }
 
-    const { event, email: emailFromFrontend } = req.body;
-    console.log("[traccar-event] Payload recebido:", JSON.stringify(req.body, null, 2));
+    const { event, email: emailFromFrontend } = req.body
+    console.log("[traccar-event] Payload recebido:", JSON.stringify(req.body, null, 2))
 
     if (!event || !event.deviceId || !event.type) {
-        return res.status(400).json({ error: 'Dados de evento inválidos.' });
+        return res.status(400).json({ error: "Dados de evento inválidos." })
     }
 
     try {
-        const deviceId = event.deviceId;
+        const deviceId = event.deviceId
         const messaging = getFirebaseMessaging()
         const firestoreDb = getFirebaseFirestore()
-        let successCount = 0;
-        let failureCount = 0;
+        let successCount = 0
+        let failureCount = 0
 
-        // Busca usuários
+        // Busca de usuários (sem alterações, está correto)
         const usersQuery = emailFromFrontend
-            ? firestoreDb.collection('token-usuarios').doc(emailFromFrontend).get()
+            ? firestoreDb.collection("token-usuarios").doc(emailFromFrontend).get()
                 .then(doc => doc.exists ? [doc] : [])
-            : firestoreDb.collection('token-usuarios')
-                .where('deviceIds', 'array-contains', deviceId)
+            : firestoreDb.collection("token-usuarios")
+                .where("deviceIds", "array-contains", deviceId)
                 .get()
-                .then(snapshot => snapshot.docs);
+                .then(snapshot => snapshot.docs)
 
-        const userDocs = await usersQuery;
+        const userDocs = await usersQuery
 
         if (!userDocs.length) {
-            console.log(`Nenhum usuário encontrado para deviceId: ${deviceId}`);
-            return res.status(200).json({ message: 'Nenhum usuário para notificar.' });
+            console.log(`Nenhum usuário encontrado para deviceId: ${deviceId}`)
+            return res.status(200).json({ message: "Nenhum usuário para notificar." })
         }
 
-        // Prepara notificação
+        // Preparação do conteúdo da notificação (sem alterações, está excelente)
         const notificationContent = (() => {
-            const base = event.name || `Dispositivo ${event.deviceId}`;
+            const base = event.name || `Dispositivo ${event.deviceId}`
             switch (event.type) {
-                case 'deviceOnline': return {
-                    title: 'Dispositivo Online',
-                    body: `${base} está online`,
-                    type: 'status'
-                };
-                case 'deviceOffline': return {
-                    title: 'Dispositivo Offline',
-                    body: `${base} está offline`,
-                    type: 'status'
-                };
-                case 'deviceMoving': return {
-                    title: 'Movimento Detectado',
-                    body: `${base} está se movendo`,
-                    type: 'movement'
-                };
-                case 'deviceStopped': return {
-                    title: 'Dispositivo Parado',
-                    body: `${base} está parado`,
-                    type: 'movement'
-                };
-                case 'ignitionOn': return {
-                    title: 'Ignição Ligada',
-                    body: `${base}: ignição ligada`,
-                    type: 'ignition'
-                };
-                case 'ignitionOff': return {
-                    title: 'Ignição Desligada',
-                    body: `${base}: ignição desligada`,
-                    type: 'ignition'
-                };
-                case 'geofenceEnter': return {
-                    title: 'Cerca Virtual',
-                    body: `${base} entrou em ${event.attributes?.geofenceName || ''}`,
-                    type: 'geofence'
-                };
-                case 'geofenceExit': return {
-                    title: 'Cerca Virtual',
-                    body: `${base} saiu de ${event.attributes?.geofenceName || ''}`,
-                    type: 'geofence'
-                };
-                case 'alarm': return {
-                    title: 'Alarme',
-                    body: `${base}: ${event.attributes?.alarm || 'Alarme ativado'}`,
-                    type: 'alarm'
-                };
-                default: return {
-                    title: 'Notificação',
-                    body: `${base}: ${event.type}`,
-                    type: 'other'
-                };
+                case "deviceOnline": return { title: "Dispositivo Online", body: `${base} está online`, type: "status" }
+                case "deviceOffline": return { title: "Dispositivo Offline", body: `${base} está offline`, type: "status" }
+                case "deviceMoving": return { title: "Movimento Detectado", body: `${base} está se movendo`, type: "movement" }
+                case "deviceStopped": return { title: "Dispositivo Parado", body: `${base} está parado`, type: "movement" }
+                case "ignitionOn": return { title: "Ignição Ligada", body: `${base}: ignição ligada`, type: "ignition" }
+                case "ignitionOff": return { title: "Ignição Desligada", body: `${base}: ignição desligada`, type: "ignition" }
+                case "geofenceEnter": return { title: "Cerca Virtual", body: `${base} entrou em ${event.attributes?.geofenceName || ""}`, type: "geofence" }
+                case "geofenceExit": return { title: "Cerca Virtual", body: `${base} saiu de ${event.attributes?.geofenceName || ""}`, type: "geofence" }
+                case "alarm": return { title: "Alarme", body: `${base}: ${event.attributes?.alarm || "Alarme ativado"}`, type: "alarm" }
+                default: return { title: "Notificação", body: `${base}: ${event.type}`, type: "other" }
             }
-        })();
+        })()
 
-        // Processa cada usuário
+        // Processamento e envio para cada usuário
         const sendPromises = userDocs.map(async (userDoc) => {
-            const tokens = userDoc.data()?.fcmTokens || [];
-            if (!tokens.length) return;
+            const currentTokens: FcmToken[] = userDoc.data()?.fcmTokens || []
+            if (!currentTokens.length) return
 
             // Envia para cada token do usuário
-            for (const tokenData of tokens) {
+            for (const tokenData of currentTokens) {
                 try {
-                    const clickAction = `/device/${deviceId}`;
+                    const clickAction = `/device/${deviceId}`
 
-                    // --- PAYLOAD SIMPLIFICADO E CORRIGIDO ---
-                    // Construído diretamente aqui, sem a função buildFcmMessage.
+                    // Payload da mensagem (sem alterações, está bem montado)
                     const message = {
                         token: tokenData.fcmToken,
-
-                        // 1. Objeto 'notification' BÁSICO (apenas title e body)
-                        // Isso garante compatibilidade e evita o erro.
                         notification: {
                             title: notificationContent.title,
                             body: notificationContent.body,
                         },
-
-                        // 2. Objeto 'data' para informações customizadas
-                        // Seu Service Worker pode ler isso para saber o que fazer.
                         data: {
                             deviceId: String(deviceId),
                             type: notificationContent.type,
-                            click_action: clickAction, // URL para abrir
+                            click_action: clickAction,
                         },
-
-                        // 3. Objeto 'webpush' para customizações da PWA (Web)
-                        // É AQUI que vão ícones, badges, ações, etc.
                         webpush: {
-                            headers: {
-                                Urgency: 'high'
-                            },
+                            headers: { Urgency: "high" },
                             notification: {
-                                icon: '/pwa-192x192.png',
-                                badge: '/pwa-64x64.png',
-                                tag: `rastrearja-${deviceId}`, // Agrupa notificações do mesmo dispositivo
+                                icon: "/pwa-192x192.png",
+                                badge: "/pwa-64x64.png",
+                                tag: `rastrearja-${deviceId}`,
                                 requireInteraction: true,
-                                actions: [
-                                    {
-                                        action: 'open_device_action',
-                                        title: 'Ver Dispositivo'
-                                    }
-                                ]
+                                actions: [{ action: "open_device_action", title: "Ver Dispositivo" }]
                             },
-                            fcm_options: {
-                                link: clickAction // Define o link de clique para navegadores que suportam
-                            }
+                            fcm_options: { link: clickAction }
                         },
-                    };
-                    // --- FIM DO PAYLOAD ---
+                    }
 
-                    const messageId = await messaging.send(message);
-                    console.log(`✅ FCM enviado para ${userDoc.id}, messageId:`, messageId);
-                    successCount++;
+                    const messageId = await messaging.send(message)
+                    console.log(`✅ FCM enviado para ${userDoc.id}, messageId:`, messageId)
+                    successCount++
 
-                    // Atualiza último uso do token
+                    // --- INÍCIO DA CORREÇÃO ---
+                    // Crie um novo array com os dados do token atualizados
+                    const updatedTokens = currentTokens.map(token => {
+                        if (token.fcmToken === tokenData.fcmToken) {
+                            // Retorna o objeto do token atual com os campos atualizados
+                            return {
+                                ...token,
+                                lastUsed: admin.firestore.FieldValue.serverTimestamp(),
+                                lastEvent: event.type
+                            }
+                        }
+                        // Retorna os outros tokens sem modificação
+                        return token
+                    })
+
+                    // Substitua o array antigo pelo novo no Firestore
                     await userDoc.ref.update({
-                        [`fcmTokens.${tokens.findIndex((t: any) => t.fcmToken === tokenData.fcmToken)}.lastUsed`]: admin.firestore.FieldValue.serverTimestamp(),
-                        [`fcmTokens.${tokens.findIndex((t: any) => t.fcmToken === tokenData.fcmToken)}.lastEvent`]: event.type
-                    });
+                        fcmTokens: updatedTokens
+                    })
+                    // --- FIM DA CORREÇÃO ---
 
                 } catch (err: any) {
-                    console.error(`❌ Erro ao enviar para ${userDoc.id}:`, err.message);
-                    failureCount++;
+                    console.error(`❌ Erro ao enviar para ${userDoc.id} (token: ${tokenData.fcmToken}):`, err.message)
+                    failureCount++
 
-                    if (err.code === 'messaging/registration-token-not-registered') {
-                        // Remove token inválido (lógica inalterada)
-                        const validTokens = tokens.filter((t: any) => t.fcmToken !== tokenData.fcmToken);
+                    // Lógica para remover token inválido (sem alterações, está correta)
+                    if (err.code === "messaging/registration-token-not-registered") {
+                        const validTokens = currentTokens.filter(t => t.fcmToken !== tokenData.fcmToken)
                         await userDoc.ref.update({
                             fcmTokens: validTokens,
                             lastTokenRemoval: admin.firestore.FieldValue.serverTimestamp()
-                        });
-                        console.log(`Token removido para ${userDoc.id}`);
+                        })
+                        console.log(`Token removido para ${userDoc.id}`)
                     }
                 }
             }
-        });
+        })
 
-        await Promise.all(sendPromises);
+        await Promise.all(sendPromises)
 
         return res.status(200).json({
             success: true,
             sent: successCount,
             failed: failureCount,
             timestamp: new Date().toISOString()
-        });
+        })
 
     } catch (err: any) {
-        console.error('[traccar-event] Erro:', err);
+        console.error("[traccar-event] Erro crítico:", err)
         return res.status(500).json({
-            error: 'Erro interno ao processar evento.',
+            error: "Erro interno ao processar evento.",
             details: err.message
-        });
+        })
     }
 }
