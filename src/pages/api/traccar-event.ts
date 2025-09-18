@@ -36,7 +36,6 @@ function buildFcmMessage(notification: any, deviceId: string, token: string) {
                         title: 'Ver Dispositivo'
                     }
                 ],
-                vibrate: [200, 100, 200]
             }
         },
         android: {
@@ -58,9 +57,6 @@ function buildFcmMessage(notification: any, deviceId: string, token: string) {
                     sound: 'default'
                 }
             },
-            fcmOptions: {
-                imageUrl: '/pwa-192x192.png'
-            }
         }
     };
 }
