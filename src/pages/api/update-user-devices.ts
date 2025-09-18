@@ -1,21 +1,12 @@
 // /pages/api/update-user-devices.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import admin from 'firebase-admin'
-import { getFirebaseFirestore } from '@/lib/firebaseAdmin';
+import { getFirebaseFirestore } from '@/lib/firebaseAdmin'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Ou 'https://app.rastrearja.com'
-    res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,POST,OPTIONS');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-Requested-With, Content-Type, Authorization'
-    );
-
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return
+    if (req.method !== 'POST') {
+        res.setHeader('Allow', ['POST'])
+        return res.status(405).json({ error: `Método ${req.method} Não Permitido` })
     }
 
     const { email, deviceIds } = req.body
@@ -32,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     try {
-        const firestoreDb = getFirebaseFirestore()
+         const firestoreDb = getFirebaseFirestore()
         const userDocRef = firestoreDb.collection('token-usuarios').doc(emailLimpo)
 
         await userDocRef.set(
@@ -42,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { merge: true } // merge: true garante que não sobrescrevemos os fcmTokens
         );
 
-        console.log(`Device IDs [${deviceIds.join(', ')}] associados ao usuário ${emailLimpo} com sucesso!.`)
+        console.log(`Device IDs [${deviceIds.join(', ')}] associados ao usuário ${emailLimpo}.`)
 
         return res.status(200).json({ success: true, message: 'Dispositivos vinculados com sucesso.' })
 

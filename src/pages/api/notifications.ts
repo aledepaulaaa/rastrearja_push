@@ -1,22 +1,8 @@
 //backend-firebase-nextjs/src/pages/api/notifications.ts
-import { getFirebaseFirestore } from '@/lib/firebaseAdmin';
+import { getFirebaseFirestore } from '@/lib/firebaseAdmin'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Ou 'https://app.rastrearja.com'
-    res.setHeader('Access-Control-Allow-Methods', 'GET,DELETE,POST,OPTIONS');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-Requested-With, Content-Type, Authorization'
-    );
-
-
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return
-    }
-
     switch (req.method) {
         case 'GET': return checkUserToken(req, res)
         case 'POST': return registerToken(req, res)
@@ -29,9 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 async function checkUserToken(req: NextApiRequest, res: NextApiResponse) {
     const { email, deviceId } = req.query
-    console.log("Email: /api/notifications", email)
-    console.log("DeviceID /api/notifications: ", deviceId)
-
+    
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
     const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(email as string)
@@ -46,7 +30,7 @@ async function checkUserToken(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function registerToken(req: NextApiRequest, res: NextApiResponse) {
-    const { fcmToken, email, deviceId, } = req.body
+    const { fcmToken, email, deviceId = 'default' } = req.body
 
     console.log("api/notifications - Corpo do request: ", req.body)
 
@@ -64,8 +48,6 @@ async function registerToken(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const emailLimpo = limparEmail(email)
-
-    console.log("Email limpado: ", emailLimpo)
     const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(emailLimpo)
     const doc = await ref.get()
@@ -90,13 +72,6 @@ async function registerToken(req: NextApiRequest, res: NextApiResponse) {
 
 async function deleteToken(req: NextApiRequest, res: NextApiResponse) {
     const { email, deviceId, fcmToken } = req.body
-
-    console.log({
-        "Pedido de remoção token": email,
-        "DeviceID": deviceId,
-        "Token": fcmToken
-    })
-
     if (!email) return res.status(400).json({ error: 'Email é obrigatório' })
     const firestoreDb = getFirebaseFirestore()
     const ref = firestoreDb.collection('token-usuarios').doc(email)
