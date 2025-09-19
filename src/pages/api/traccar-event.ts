@@ -3,28 +3,8 @@ import type { NextApiRequest, NextApiResponse } from 'next'
 import admin from 'firebase-admin'
 import { getFirebaseFirestore } from '@/lib/firebaseAdmin'
 
-// Interface para o payload do evento que o Traccar envia. Nenhuma alteração aqui.
-interface EventNotificationPayload {
-    id: number
-    attributes?: Record<string, any>
-    deviceId: number
-    name: string // Este campo é populado pelo Traccar com o nome do dispositivo
-    type: string
-    eventTime: string
-    positionId?: number
-    geofenceId?: number
-    maintenanceId?: number
-}
-
-// Interface para o corpo da requisição que o Traccar envia.
-// Ele envia um objeto que contém a chave "event".
-interface TraccarForwardRequest {
-    event: EventNotificationPayload
-    // O Traccar também pode enviar um objeto "position", mas não o usaremos aqui.
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-
     if (req.method !== 'POST') {
         res.setHeader('Allow', ['POST'])
         return res.status(405).json({ error: `Método ${req.method} Não Permitido` })
