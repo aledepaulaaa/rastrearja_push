@@ -48,7 +48,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         // --- LÓGICA DE BUSCA CORRIGIDA ---
         if (emailFromFrontend) {
-            // Se o frontend enviou o email (para testes), busca por ele.
             console.log(`Buscando usuário pelo email fornecido pelo frontend: ${emailFromFrontend}`)
             const firestoreDb = getFirebaseFirestore()
             const userDoc = await firestoreDb.collection('token-usuarios').doc(emailFromFrontend).get()
@@ -56,7 +55,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 userDocs.push(userDoc);
             }
         } else {
-            // Se veio do Traccar, busca pelo deviceId.
             console.log(`Buscando usuário pelo deviceId: ${deviceId}`)
             const firestoreDb = getFirebaseFirestore()
             const usersSnapshot = await firestoreDb.collection('token-usuarios')
@@ -82,8 +80,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Processa a notificação para cada usuário encontrado
         for (const userDoc of userDocs) {
             const userEmail = userDoc.id
-            const fcmTokenData: any[] = userDoc.data()?.fcmTokens || []
-            const tokens: string[] = fcmTokenData.map(t => t.fcmToken).filter(Boolean)
+            const userData = userDoc.data()
+
+            // Verifica se fcmTokens existe e é um array
+            if (!userData?.fcmTokens || !Array.isArray(userData.fcmTokens)) {
+                console.log(`Dados de token inválidos para usuário ${userEmail}`)
+                continue
+            }
+
+            // Extrai apenas os tokens válidos
+            const tokens = userData.fcmTokens
+                .filter((token: any) => token && typeof token === 'object' && token.fcmToken)
+                .map((token: any) => token.fcmToken);
 
             if (tokens.length === 0) {
                 console.log(`Nenhum token FCM válido encontrado para o usuário ${userEmail}. Pulando.`)
@@ -158,7 +166,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             if (invalidTokens.length > 0) {
                 console.log(`Encontrados ${invalidTokens.length} tokens inválidos para ${userEmail}:`, invalidTokens)
-                const validTokens = fcmTokenData.filter(t => !invalidTokens.includes(t.fcmToken))
+                const validTokens = tokens.filter((t: any) => !invalidTokens.includes(t.fcmToken))
                 await userDoc.ref.update({ fcmTokens: validTokens })
                 totalInvalidRemoved += invalidTokens.length
                 console.log(`Tokens inválidos de ${userEmail} removidos do Firestore.`)

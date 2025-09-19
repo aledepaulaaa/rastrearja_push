@@ -30,44 +30,47 @@ async function checkUserToken(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function registerToken(req: NextApiRequest, res: NextApiResponse) {
-    const { fcmToken, email, deviceId = 'default' } = req.body
+  const { fcmToken, email, deviceId = 'default' } = req.body;
 
-    console.log("api/notifications - Corpo do request: ", req.body)
+  if (!fcmToken || !email) {
+    return res.status(400).json({ error: 'Token e email são obrigatórios' });
+  }
 
-    function validarEmail(email: string): boolean {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-        return emailRegex.test(email)
-    }
+  const cleanEmail = email.replace(/["']/g, '').trim().toLowerCase();
+  const firestoreDb = getFirebaseFirestore();
+  const userRef = firestoreDb.collection('token-usuarios').doc(cleanEmail);
 
-    if (!fcmToken || !email || !validarEmail(email)) return res.status(400).json({ error: 'Token e email são obrigatórios' })
-
-
-    function limparEmail(email: string): string {
-        // Remove aspas e espaços em branco
-        return email.replace(/["']/g, '').trim().toLowerCase()
-    }
-
-    const emailLimpo = limparEmail(email)
-    const firestoreDb = getFirebaseFirestore()
-    const ref = firestoreDb.collection('token-usuarios').doc(emailLimpo)
-    const doc = await ref.get()
-    let tokens = doc.exists ? doc.data()?.fcmTokens || [] : []
-
-    // Se token já existe igual, retorna sem atualizar
-    const existing = tokens.find((t: any) => t.deviceId === deviceId && t.fcmToken === fcmToken)
-    if (existing) return res.status(200).json({ success: true })
-
-    const now = new Date()
+  try {
+    const doc = await userRef.get();
+    const now = new Date().toISOString();
+    
     if (doc.exists) {
-        const idx = tokens.findIndex((t: any) => t.deviceId === deviceId)
-        if (idx >= 0) tokens[idx] = { deviceId, fcmToken, createdAt: tokens[idx].createdAt, updatedAt: now }
-        else tokens.push({ deviceId, fcmToken, createdAt: now })
-        await ref.update({ fcmTokens: tokens })
+      const tokens = doc.data()?.fcmTokens || [];
+      const tokenIndex = tokens.findIndex((t: any) => t.deviceId === deviceId);
+      
+      if (tokenIndex >= 0) {
+        tokens[tokenIndex] = { ...tokens[tokenIndex], fcmToken, updatedAt: now };
+      } else {
+        tokens.push({ deviceId, fcmToken, createdAt: now, updatedAt: now });
+      }
+      
+      await userRef.update({ fcmTokens: tokens });
     } else {
-        await ref.set({ fcmTokens: [{ deviceId, fcmToken, createdAt: now }] })
+      await userRef.set({
+        fcmTokens: [{
+          deviceId,
+          fcmToken,
+          createdAt: now,
+          updatedAt: now
+        }]
+      });
     }
 
-    return res.status(200).json({ success: true })
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('Erro ao registrar token:', error);
+    return res.status(500).json({ error: 'Erro interno ao registrar token' });
+  }
 }
 
 async function deleteToken(req: NextApiRequest, res: NextApiResponse) {
