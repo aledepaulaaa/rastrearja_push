@@ -1,5 +1,5 @@
 //backend-firebase-nextjs/src/pages/api/notifications.ts
-import { getFirebaseFirestore } from '@/lib/firebaseAdmin'
+import { getFirebaseFirestore } from '@/lib/firebase'
 import type { NextApiRequest, NextApiResponse } from 'next'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

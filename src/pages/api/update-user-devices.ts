@@ -1,7 +1,7 @@
 // /pages/api/update-user-devices.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import admin from 'firebase-admin'
-import { getFirebaseFirestore } from '@/lib/firebaseAdmin'
+import { getFirebaseFirestore } from '@/lib/firebase'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== 'POST') {
