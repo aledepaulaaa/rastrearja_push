@@ -4,7 +4,7 @@ import admin from 'firebase-admin'
 import { getFirebaseFirestore } from '@/lib/firebase';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-       // Configura os cabeçalhos CORS antes de qualquer resposta
+    // Configura os cabeçalhos CORS antes de qualquer resposta
     res.setHeader('Access-Control-Allow-Origin', '*')
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
@@ -85,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             console.log(`Enviando notificação para ${userEmail} (${tokens.length} tokens) para o evento do deviceId ${deviceId}`)
 
             // 4. Cria o conteúdo da notificação (sua lógica original, sem alterações).
-            const makeNotification = (() => {
+            const notificationPayload = (() => {
                 const base = event.name || `Dispositivo ${event.deviceId}`
                 switch (event.type) {
                     case 'deviceOnline': return { title: 'Dispositivo Online', body: `${base} está online` }
@@ -104,36 +104,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // 5. Monta e envia a mensagem FCM (sua lógica original, sem alterações).
             const message: admin.messaging.MulticastMessage = {
                 tokens,
-                notification: makeNotification,
                 data: {
+                    title: notificationPayload.title,
+                    body: notificationPayload.body,
                     name: String(event.name),
                     type: event.type,
                     eventTime: event.eventTime,
-                    deviceId: String(event.deviceId) // Adicionado para referência no cliente
+                    deviceId: String(event.deviceId),
+                    icon: '/pwa-192x192.png', // Passa o ícone via data
+                    badge: '/pwa-64x64.png',  // Passa o badge via data
+                    link: `/device/${event.deviceId}`
                 },
                 android: {
                     priority: 'high',
-                    notification: {
-                        channelId: 'high_importance_channel'
-                    }
                 },
                 apns: {
                     payload: {
                         aps: {
-                            sound: 'default',
-                            badge: 1
+                            'content-available': 1,
                         }
                     }, headers: { 'apns-priority': '10' }
                 },
-                webpush: {
-                    fcmOptions: {
-                        link: `/device/${event.deviceId}`
-                    },
-                    notification: {
-                        icon: '/icon-192x192.png',
-                        badge: '/icon-64x64.png',
-                    }
-                }
             }
 
             const response = await admin.messaging().sendEachForMulticast(message)
