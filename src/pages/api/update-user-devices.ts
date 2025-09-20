@@ -4,6 +4,11 @@ import admin from 'firebase-admin'
 import { getFirebaseFirestore } from '@/lib/firebase'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+       // Configura os cabeçalhos CORS antes de qualquer resposta
+    res.setHeader('Access-Control-Allow-Origin', '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
+
     if (req.method !== 'POST') {
         res.setHeader('Allow', ['POST'])
         return res.status(405).json({ error: `Método ${req.method} Não Permitido` })
