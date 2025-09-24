@@ -1,7 +1,7 @@
 //src/pages/api/traccar-events.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
 import admin from 'firebase-admin'
-import { getFirebaseFirestore } from '@/lib/firebase';
+import { getFirebaseFirestore } from '@/lib/firebase'
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     // Configura os cabeçalhos CORS antes de qualquer resposta
@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(405).json({ error: `Método ${req.method} Não Permitido` })
     }
 
-    const { event, email: emailFromFrontend } = req.body;
+    const { event, email: emailFromFrontend } = req.body
     console.log("api/traccar-event - Corpo do request recebido:", req.body)
 
     // Validação para garantir que o objeto 'event' e seus campos essenciais existem.
@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     try {
         const deviceId = event.deviceId
-        let userDocs: any = [];
+        let userDocs: any = []
 
         // --- LÓGICA DE BUSCA CORRIGIDA ---
         if (emailFromFrontend) {
@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             const firestoreDb = getFirebaseFirestore()
             const userDoc = await firestoreDb.collection('token-usuarios').doc(emailFromFrontend).get()
             if (userDoc.exists) {
-                userDocs.push(userDoc);
+                userDocs.push(userDoc)
             }
         } else {
             console.log(`Buscando usuário pelo deviceId: ${deviceId}`)
@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .get()
 
             if (!usersSnapshot.empty) {
-                userDocs = usersSnapshot.docs;
+                userDocs = usersSnapshot.docs
             }
         }
 
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             return res.status(200).json({ message: `Nenhum usuário associado ao deviceId ${deviceId}.` })
         }
 
-        console.log(`Encontrado(s) ${userDocs.length} usuário(s) para notificar sobre o deviceId ${deviceId}`);
+        console.log(`Encontrado(s) ${userDocs.length} usuário(s) para notificar sobre o deviceId ${deviceId}`)
 
         let totalSent = 0
         let totalFailed = 0
@@ -75,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             // Extrai apenas os tokens válidos
             const tokens = userData.fcmTokens
                 .filter((token: any) => token && typeof token === 'object' && token.fcmToken)
-                .map((token: any) => token.fcmToken);
+                .map((token: any) => token.fcmToken)
 
             if (tokens.length === 0) {
                 console.log(`Nenhum token FCM válido encontrado para o usuário ${userEmail}. Pulando.`)
